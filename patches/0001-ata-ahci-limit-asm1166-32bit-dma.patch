@@ -1,0 +1,73 @@
+From: <YOUR NAME> <your-real-email@example.com>
+Date: <DATE>
+Subject: [PATCH] ata: ahci: limit ASMedia ASM1166 to 32-bit DMA
+
+The ASMedia ASM1166 SATA controller (1b21:1166) advertises 64-bit DMA
+support (AHCI CAP.S64A), but on systems with the IOMMU enabled - where it
+can be handed DMA addresses above 4 GB - it silently corrupts data in
+transit. Reads return different, wrong data on each access. SMART is clean,
+there are no SATA link resets and no MCE is raised, so the corruption is
+invisible until it surfaces as filesystem metadata errors (XFS EUCLEAN)
+or, on Ceph, mass scrub errors across multiple independent filesystems at
+once - i.e. host-level, not filesystem-level.
+
+This is the same failure mode already quirked for other controllers that
+falsely claim working 64-bit DMA: JMicron JMB585 (commit 105c42566a55) and
+ASMedia ASM1061 (commit 20730e9b2778). The ASM1166 currently maps to plain
+board_ahci with no DMA limit.
+
+Limit the ASM1166 to 32-bit DMA. 32-bit is the guaranteed-correct lower
+bound; the only cost is extra SWIOTLB bounce-buffering on transfers above
+4 GB, negligible for storage. A future change can widen it to the
+controller's true addressable width if characterised. Until this lands the
+only workarounds are disabling the IOMMU (amd_iommu=off / intel_iommu=off)
+or using an HBA.
+
+Reproduced on an AOOSTAR WTR MAX (AMD Ryzen 7 PRO 8845HS) whose six SATA
+bays all hang off one ASM1166: with the IOMMU on, six concurrent
+'dd ... | md5sum' of the same large file return six different sums; with
+amd_iommu=off they are identical, and a full Ceph deep-scrub of a 5.4 TiB
+/ 1.43M-object pool re-reads end-to-end with zero scrub errors.
+
+Add a generic board_ahci_32bit_dma board type (mirroring the existing
+board_ahci_43bit_dma) and point the ASM1166 entry at it.
+
+Assisted-by: Claude (claude-opus-4.8)
+Signed-off-by: <YOUR NAME> <your-real-email@example.com>
+---
+ drivers/ata/ahci.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/ata/ahci.c b/drivers/ata/ahci.c
+--- a/drivers/ata/ahci.c
++++ b/drivers/ata/ahci.c
+@@ enum board_ids @@
+ 	board_ahci_43bit_dma,
++	board_ahci_32bit_dma,
+
+@@ static const struct ata_port_info ahci_port_info[] @@
+ 	[board_ahci_43bit_dma] = {
+ 		AHCI_HFLAGS	(AHCI_HFLAG_43BIT_ONLY),
+ 		.flags		= AHCI_FLAG_COMMON,
+ 		.pio_mask	= ATA_PIO4,
+ 		.udma_mask	= ATA_UDMA6,
+ 		.port_ops	= &ahci_ops,
+ 	},
++	[board_ahci_32bit_dma] = {
++		AHCI_HFLAGS	(AHCI_HFLAG_32BIT_ONLY),
++		.flags		= AHCI_FLAG_COMMON,
++		.pio_mask	= ATA_PIO4,
++		.udma_mask	= ATA_UDMA6,
++		.port_ops	= &ahci_ops,
++	},
+
+@@ static const struct pci_device_id ahci_pci_tbl[] @@
+ 	{
+-		/* ASM1166 */
++		/* ASM1166 - 64-bit DMA is broken, limit to 32-bit DMA */
+ 		PCI_VDEVICE(ASMEDIA, 0x1166),
+-		.driver_data = board_ahci,
++		.driver_data = board_ahci_32bit_dma,
+ 	},
+--
+2.x
