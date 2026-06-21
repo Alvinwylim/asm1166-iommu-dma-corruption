@@ -38,12 +38,11 @@ The ASM1166 sets the AHCI **`CAP.S64A`** bit (claims 64-bit DMA), so the kernel 
 After applying `amd_iommu=off`: a Ceph HDD pool on this controller was rebuilt and **deep-scrubbed end-to-end — 5.4 TiB / ~1.43M objects re-read through the fixed DMA path with 0 scrub errors → HEALTH_OK.** Before the fix, the same hardware produced six different md5s from six concurrent reads of one file. This is at-scale confirmation, not a single-file inference.
 
 ## Status
-- Kernel patch: **submitted to `linux-ide`** — `<link to lore.kernel.org thread once sent>`.
-- Bug report: **bugzilla.kernel.org** Drivers/Serial ATA — `<link once filed>`.
-- This repo is the canonical write-up; the patch/bug/forum posts all link here.
+- Kernel patch: **submitted to `linux-ide`** (2026-06-21) — https://lore.kernel.org/linux-ide/20260621100844.1224301-1-alvinwylim@gmail.com/ — `[PATCH] ata: ahci: force 32-bit DMA for ASMedia ASM1166`, with `Fixes: 3bf614106094` + `Cc: stable@`.
+- This repo is the canonical write-up; the patch + any forum posts link here.
 
 ## References
-- JMicron JMB585/JMB582 AHCI DMA quirk (same class, 32-bit) — `commit 105c42566a55` (verify exact title via `git log`).
+- JMicron JMB585/JMB582 AHCI DMA quirk (same class, 32-bit) — `commit 105c42566a55 ("ata: ahci: force 32-bit DMA for JMicron JMB582/JMB585")`.
 - ASMedia ASM1061 AHCI DMA quirk (same class, 43-bit) — `commit 20730e9b2778 ("ahci: add 43-bit DMA address quirk for ASMedia ASM1061 controllers")`.
 - Linux `drivers/ata/ahci.c` (the quirk plumbing) — https://github.com/torvalds/linux/blob/master/drivers/ata/ahci.c
 - Sibling community RCA that inspired this format: https://github.com/artmoty-dev/n5pro-jmb585-fix
