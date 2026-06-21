@@ -8,10 +8,12 @@
 ---
 
 ## Affected hardware
-- Any board where SATA disks hang off an **ASMedia ASM1166** (`1b21:1166`, rev 02) **and the IOMMU is enabled.**
+- Any board where SATA disks hang off an **ASMedia ASM116x controller** **and the IOMMU is enabled.** The whole family shares the same DMA engine:
+  - **ASM1166** (`1b21:1166`) — **empirically confirmed** (see below).
+  - **ASM1164** (`1b21:1164`) + **ASM1165** (`1b21:1165`) — **same silicon family, almost certainly affected** (still map to plain `board_ahci` upstream; a v2 of the kernel patch will extend the quirk to them — precedent: the ASM1061 quirk was likewise extended to its ASM106x siblings).
 - Confirmed on: **AOOSTAR WTR MAX** (AMD Ryzen 7 PRO 8845HS, Zen 4) — all 6 SATA bays share one ASM1166.
 - **NVMe is unaffected** (different controller/DMA path).
-- Same failure *class* as JMicron **JMB585** and ASMedia **ASM1061**, both already quirked in the kernel — the ASM1166 was simply never added.
+- Same failure *class* as JMicron **JMB585** and ASMedia **ASM1061**, both already quirked in the kernel — the ASM116x parts were simply never added.
 
 ## Symptom
 - **Silent, non-deterministic read corruption.** A single isolated read is often clean; **concurrent reads of the same data return different garbage each time.**
