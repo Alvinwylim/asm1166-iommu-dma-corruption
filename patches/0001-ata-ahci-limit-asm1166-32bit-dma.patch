@@ -1,6 +1,6 @@
 From: <YOUR NAME> <your-real-email@example.com>
 Date: <DATE>
-Subject: [PATCH] ata: ahci: limit ASMedia ASM1166 to 32-bit DMA
+Subject: [PATCH] ata: ahci: force 32-bit DMA for ASMedia ASM1166
 
 The ASMedia ASM1166 SATA controller (1b21:1166) advertises 64-bit DMA
 support (AHCI CAP.S64A), but on systems with the IOMMU enabled - where it
@@ -12,9 +12,10 @@ or, on Ceph, mass scrub errors across multiple independent filesystems at
 once - i.e. host-level, not filesystem-level.
 
 This is the same failure mode already quirked for other controllers that
-falsely claim working 64-bit DMA: JMicron JMB585 (commit 105c42566a55) and
-ASMedia ASM1061 (commit 20730e9b2778). The ASM1166 currently maps to plain
-board_ahci with no DMA limit.
+falsely claim working 64-bit DMA. See commit 105c42566a55 ("ata: ahci:
+force 32-bit DMA for JMicron JMB582/JMB585") and commit 20730e9b2778
+("ahci: add 43-bit DMA address quirk for ASMedia ASM1061 controllers").
+The ASM1166 currently maps to plain board_ahci with no DMA limit.
 
 Limit the ASM1166 to 32-bit DMA. 32-bit is the guaranteed-correct lower
 bound; the only cost is extra SWIOTLB bounce-buffering on transfers above
@@ -32,7 +33,8 @@ amd_iommu=off they are identical, and a full Ceph deep-scrub of a 5.4 TiB
 Add a generic board_ahci_32bit_dma board type (mirroring the existing
 board_ahci_43bit_dma) and point the ASM1166 entry at it.
 
-Assisted-by: Claude (claude-opus-4.8)
+Cc: stable@vger.kernel.org
+Assisted-by: Claude:claude-opus-4.8
 Signed-off-by: <YOUR NAME> <your-real-email@example.com>
 ---
  drivers/ata/ahci.c | 9 ++++++++-
